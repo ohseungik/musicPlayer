@@ -57,7 +57,6 @@ export default function YouTubeMusicPlayer() {
       }
     } catch (e) {
       console.error("Failed to load playlist from localStorage", e)
-      // 오류 발생 시 초기 상태로 복구하거나 사용자에게 알림
     }
   }, [])
 
@@ -97,7 +96,6 @@ export default function YouTubeMusicPlayer() {
     const newPlaylistItem = { id: newId, youtubeId, title: newVideoTitle.trim(), originalUrl: newVideoUrl.trim() }
     setPlaylist((prev) => {
       const updatedPlaylist = [...prev, newPlaylistItem]
-      // 첫 곡 추가 시 자동 선택 및 재생 시도
       if (prev.length === 0 && currentTrackIndex === null) {
         setCurrentTrackIndex(0)
         setIsPlaying(true)
@@ -216,14 +214,15 @@ export default function YouTubeMusicPlayer() {
 
   // YouTube 플레이어 옵션
   const opts = {
-    height: "100%",
-    width: "100%",
+    height: "1",
+    width: "1",
     playerVars: {
       autoplay: 1,
-      controls: 1,
+      controls: 0,
       disablekb: 1,
       modestbranding: 1,
       rel: 0,
+      iv_load_policy: 3,
     },
   }
 
@@ -231,12 +230,11 @@ export default function YouTubeMusicPlayer() {
   const onPlayerReady = useCallback(
     (event: YouTubeEvent) => {
       playerRef.current = event.target
-      // 컴포넌트 로드 시 저장된 인덱스가 있고, 해당 비디오가 있다면 재생 시도
-      if (currentTrackIndex !== null && playlist[currentTrackIndex] && isPlaying) {
+      if (isPlaying) {
         event.target.playVideo()
       }
     },
-    [isPlaying, currentTrackIndex, playlist],
+    [isPlaying],
   )
 
   // YouTube 플레이어 재생 시
@@ -273,7 +271,7 @@ export default function YouTubeMusicPlayer() {
               onChange={(e) => setNewVideoTitle(e.target.value)}
               className="w-full"
             />
-            <div className="flex gap-2">
+            <div className="flex flex-col sm:flex-row gap-2">
               <Input
                 type="url"
                 placeholder="YouTube URL (예: https://www.youtube.com/watch?v=8DcrMJ4_7Uc)"
@@ -297,12 +295,11 @@ export default function YouTubeMusicPlayer() {
             <Card className="p-4 flex flex-col gap-4">
               {currentVideo ? (
                 <>
-                  <div className="flex items-center justify-between">
-                    <div className="flex-grow">
-                      <p className="font-medium text-lg line-clamp-1">{currentVideo.title}</p>
-                      <p className="text-sm text-muted-foreground line-clamp-1">{currentVideo.originalUrl}</p>
+                  <div className="flex items-center flex-wrap gap-x-2 gap-y-4">
+                    <div className="flex-grow min-w-0 w-full">
+                      <p className="font-medium text-base sm:text-lg line-clamp-1">{currentVideo.title}</p>
                     </div>
-                    <div className="flex gap-2 ml-4">
+                    <div className="flex gap-2 w-full justify-center">
                       <Button variant="ghost" size="icon" onClick={playPrevious} disabled={playlist.length === 0}>
                         <SkipBack className="h-5 w-5" />
                       </Button>
@@ -330,7 +327,8 @@ export default function YouTubeMusicPlayer() {
                       </Button>
                     </div>
                   </div>
-                  <div className="rounded-xl overflow-hidden aspect-video">
+                  {/* YouTube iframe을 시각적으로 숨김 */}
+                  <div className="fixed top-0 left-0 w-1 h-1 overflow-hidden opacity-0 pointer-events-none z-[-1]">
                     <YouTube
                       videoId={currentVideo.youtubeId}
                       opts={opts}
@@ -338,12 +336,10 @@ export default function YouTubeMusicPlayer() {
                       onPlay={onPlayerPlay}
                       onPause={onPlayerPause}
                       onEnd={onPlayerEnd}
-                      className="w-full h-full"
-                      iframeClassName="w-full h-full"
                     />
                   </div>
                   <p className="text-sm text-muted-foreground mt-2">
-                    이 비디오는 YouTube의 공식 임베드 방식을 사용하며 광고를 포함할 수 있습니다.
+                    이 플레이어는 YouTube 비디오를 백그라운드에서 재생합니다.
                   </p>
                 </>
               ) : (
@@ -367,15 +363,14 @@ export default function YouTubeMusicPlayer() {
                         currentTrackIndex === index ? "bg-accent text-accent-foreground" : "hover:bg-muted"
                       } ${index > 0 ? "mt-2" : ""}`}
                     >
-                      <div className="flex-grow cursor-pointer" onClick={() => selectVideo(index)}>
+                      <div className="flex-grow min-w-0 cursor-pointer" onClick={() => selectVideo(index)}>
                         <p className="font-medium line-clamp-1">{video.title}</p>
-                        <p className="text-sm text-muted-foreground line-clamp-1">{video.originalUrl}</p>
                       </div>
                       <Button
                         variant="ghost"
                         size="icon"
                         onClick={() => removeVideo(video.id)}
-                        className="ml-4 text-destructive hover:text-destructive-foreground"
+                        className="ml-auto text-destructive hover:text-destructive-foreground"
                       >
                         <Trash2 className="h-4 w-4" />
                       </Button>
