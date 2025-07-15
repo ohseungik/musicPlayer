@@ -328,7 +328,7 @@ export default function YouTubeMusicPlayer() {
                     </div>
                   </div>
                   {/* YouTube iframe을 시각적으로 숨김 */}
-                  <div className="fixed top-0 left-0 w-1 h-1 overflow-hidden opacity-0 pointer-events-none z-[-1]">
+                  <div className="fixed bottom-0 right-0 w-1 h-1 overflow-hidden z-[-1]">
                     <YouTube
                       videoId={currentVideo.youtubeId}
                       opts={opts}
