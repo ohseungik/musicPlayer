@@ -214,8 +214,8 @@ export default function YouTubeMusicPlayer() {
 
   // YouTube 플레이어 옵션
   const opts = {
-    height: "1",
-    width: "1",
+    height: "48",
+    width: "80",
     playerVars: {
       autoplay: 1,
       controls: 0,
@@ -298,6 +298,9 @@ export default function YouTubeMusicPlayer() {
                   <div className="flex items-center flex-wrap gap-x-2 gap-y-4">
                     <div className="flex-grow min-w-0 w-full">
                       <p className="font-medium text-base sm:text-lg line-clamp-1">{currentVideo.title}</p>
+                      <p className="text-xs sm:text-sm text-muted-foreground line-clamp-1">
+                        {currentVideo.originalUrl}
+                      </p>
                     </div>
                     <div className="flex gap-2 w-full justify-center">
                       <Button variant="ghost" size="icon" onClick={playPrevious} disabled={playlist.length === 0}>
@@ -327,8 +330,10 @@ export default function YouTubeMusicPlayer() {
                       </Button>
                     </div>
                   </div>
-                  {/* YouTube iframe을 시각적으로 숨김 */}
-                  <div className="fixed bottom-0 right-0 w-1 h-1 overflow-hidden z-[-1]">
+                  {/* YouTube iframe을 시각적으로 숨김 (약간 더 크게)
+// `fixed`를 `absolute`로 변경하고 크기를 `w-4 h-4`로 조정합니다.
+// 이 변경은 브라우저의 정책에 대한 미미한 시도이며, 백그라운드 재생을 보장하지 않습니다. */}
+                  <div className="absolute bottom-2 right-2 w-20 h-12 overflow-hidden rounded border opacity-20 z-10">
                     <YouTube
                       videoId={currentVideo.youtubeId}
                       opts={opts}
@@ -365,6 +370,7 @@ export default function YouTubeMusicPlayer() {
                     >
                       <div className="flex-grow min-w-0 cursor-pointer" onClick={() => selectVideo(index)}>
                         <p className="font-medium line-clamp-1">{video.title}</p>
+                        <p className="text-sm text-muted-foreground line-clamp-1">{video.originalUrl}</p>
                       </div>
                       <Button
                         variant="ghost"
