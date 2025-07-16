@@ -212,10 +212,10 @@ export default function YouTubeMusicPlayer() {
     [playlist, currentTrackIndex],
   )
 
-  // YouTube 플레이어 옵션
+  // YouTube 플레이어 옵션 - loop=1 파라미터 추가
   const opts = {
-    height: "48",
-    width: "80",
+    height: "1",
+    width: "1",
     playerVars: {
       autoplay: 1,
       controls: 0,
@@ -223,6 +223,8 @@ export default function YouTubeMusicPlayer() {
       modestbranding: 1,
       rel: 0,
       iv_load_policy: 3,
+      loop: 1, // 반복 재생 활성화
+      playlist: currentVideo?.youtubeId || "", // loop=1이 작동하려면 playlist 파라미터가 필요
     },
   }
 
@@ -247,11 +249,14 @@ export default function YouTubeMusicPlayer() {
     setIsPlaying(false)
   }, [])
 
-  // YouTube 플레이어 종료 시 다음 곡 재생
+  // YouTube 플레이어 종료 시 다음 곡 재생 (loop=1이 있으면 이 이벤트가 발생하지 않을 수 있음)
   const onPlayerEnd = useCallback(() => {
     setIsPlaying(false)
-    playNext()
-  }, [playNext])
+    // loop=1이 활성화되어 있으면 자동으로 반복되므로 다음 곡으로 넘어가지 않음
+    if (playMode !== "repeat-all") {
+      playNext()
+    }
+  }, [playNext, playMode])
 
   return (
     <div className="container mx-auto p-4 max-w-4xl">
@@ -330,11 +335,10 @@ export default function YouTubeMusicPlayer() {
                       </Button>
                     </div>
                   </div>
-                  {/* YouTube iframe을 시각적으로 숨김 (약간 더 크게)
-// `fixed`를 `absolute`로 변경하고 크기를 `w-4 h-4`로 조정합니다.
-// 이 변경은 브라우저의 정책에 대한 미미한 시도이며, 백그라운드 재생을 보장하지 않습니다. */}
-                  <div className="absolute bottom-2 right-2 w-20 h-12 overflow-hidden rounded border opacity-20 z-10">
+                  {/* YouTube iframe - 매우 작은 크기로 숨김 */}
+                  <div className="fixed bottom-0 right-0 w-1 h-1 overflow-hidden z-[-1]">
                     <YouTube
+                      key={currentVideo.youtubeId}
                       videoId={currentVideo.youtubeId}
                       opts={opts}
                       onReady={onPlayerReady}
@@ -344,7 +348,7 @@ export default function YouTubeMusicPlayer() {
                     />
                   </div>
                   <p className="text-sm text-muted-foreground mt-2">
-                    이 플레이어는 YouTube 비디오를 백그라운드에서 재생합니다.
+                    이 플레이어는 YouTube 비디오를 반복 재생합니다. (loop=1 파라미터 사용)
                   </p>
                 </>
               ) : (
