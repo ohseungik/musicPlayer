@@ -580,8 +580,8 @@ export default function YouTubeMusicPlayer() {
                   {/* YouTube iframe - 보이는 플레이어 (재생목록 지원) */}
                   <div className="w-full aspect-video bg-black rounded-lg overflow-hidden">
                     <YouTube
-                      key={`${currentVideo.youtubeId}-${playlist.length}`}
-                      videoId={playlist.length > 0 ? playlist[0].youtubeId : currentVideo.youtubeId}
+                      key={currentVideo.youtubeId}
+                      videoId={currentVideo.youtubeId}
                       opts={opts}
                       onReady={onPlayerReady}
                       onPlay={onPlayerPlay}
