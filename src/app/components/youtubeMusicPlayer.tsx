@@ -34,6 +34,7 @@ export default function YouTubeMusicPlayer() {
   const playedIndicesRef = useRef<number[]>([])
   const checkIntervalRef = useRef<NodeJS.Timeout | null>(null)
   const wakeLockRef = useRef<WakeLockSentinel | null>(null)
+  const videoRef = useRef<HTMLVideoElement | null>(null)
 
   const currentVideo = currentTrackIndex !== null ? playlist[currentTrackIndex] : null
 
@@ -169,6 +170,37 @@ export default function YouTubeMusicPlayer() {
       playerRef.current.playVideo()
     }
   }, [isPlaying])
+
+  // PIP (Picture-in-Picture) 모드 활성화
+  const enablePIP = useCallback(async () => {
+    try {
+      // YouTube iframe의 내부 비디오 요소에 접근 시도
+      const iframe = document.querySelector('iframe')
+      if (!iframe) {
+        alert("비디오를 찾을 수 없습니다.")
+        return
+      }
+
+      // 주의: YouTube iframe은 보안상 내부 접근이 제한됩니다
+      // 대안: 사용자에게 브라우저의 PIP 기능 안내
+      if (document.pictureInPictureEnabled) {
+        alert(
+          "브라우저 메뉴에서 Picture-in-Picture를 활성화하세요:\n\n" +
+          "1. 비디오를 마우스 우클릭\n" +
+          "2. 'Picture in Picture' 선택\n\n" +
+          "또는 모바일에서:\n" +
+          "1. 크롬 메뉴(⋮) 열기\n" +
+          "2. '데스크톱 사이트' 확인\n" +
+          "3. 홈 버튼으로 나가면 자동 PIP"
+        )
+      } else {
+        alert("이 브라우저는 Picture-in-Picture를 지원하지 않습니다.")
+      }
+    } catch (err) {
+      console.error("PIP error:", err)
+      alert("PIP 모드를 활성화할 수 없습니다.")
+    }
+  }, [])
 
   // 재생 모드 토글
   const togglePlayMode = useCallback(() => {
@@ -459,6 +491,11 @@ export default function YouTubeMusicPlayer() {
                       </Button>
                     </div>
                   </div>
+                  <div className="mt-2">
+                    <Button onClick={enablePIP} variant="outline" size="sm" className="w-full">
+                      📺 PIP 모드 안내 (백그라운드 재생)
+                    </Button>
+                  </div>
                   {/* YouTube iframe - 매우 작은 크기로 숨김 */}
                   <div className="fixed bottom-0 right-0 w-1 h-1 overflow-hidden z-[-1]">
                     <YouTube
@@ -473,7 +510,7 @@ export default function YouTubeMusicPlayer() {
                     />
                   </div>
                   <p className="text-sm text-muted-foreground mt-2">
-                    백그라운드에서도 자동으로 다음 곡이 재생됩니다.
+                    💡 모바일 백그라운드 재생 팁: PIP 모드를 사용하거나, 화면을 켜두고 사용하세요.
                   </p>
                 </>
               ) : (
