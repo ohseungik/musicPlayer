@@ -33,6 +33,7 @@ export default function YouTubeMusicPlayer() {
   const playerRef = useRef<YouTubePlayer | null>(null)
   const playedIndicesRef = useRef<number[]>([])
   const checkIntervalRef = useRef<NodeJS.Timeout | null>(null)
+  const wakeLockRef = useRef<WakeLockSentinel | null>(null)
 
   const currentVideo = currentTrackIndex !== null ? playlist[currentTrackIndex] : null
 
@@ -237,8 +238,12 @@ export default function YouTubeMusicPlayer() {
       if (playerRef.current && isPlaying) {
         try {
           const state = playerRef.current.getPlayerState()
-          // 0 = ended
-          if (state === 0) {
+          const currentTime = playerRef.current.getCurrentTime()
+          const duration = playerRef.current.getDuration()
+          
+          // 0 = ended 또는 현재 시간이 전체 시간에 거의 도달한 경우
+          if (state === 0 || (duration > 0 && currentTime >= duration - 1)) {
+            console.log("Track ended, moving to next")
             if (playMode === "repeat-all" || playMode === "shuffle") {
               playNext()
             } else {
@@ -255,7 +260,7 @@ export default function YouTubeMusicPlayer() {
           console.error("Player state check error:", e)
         }
       }
-    }, 1000) // 1초마다 체크
+    }, 500) // 0.5초마다 체크 (더 빠른 반응)
   }, [isPlaying, playMode, currentTrackIndex, playlist.length, playNext])
 
   // 컴포넌트 언마운트 시 인터벌 정리
@@ -277,6 +282,42 @@ export default function YouTubeMusicPlayer() {
       }
     }
   }, [isPlaying, startStateCheck])
+
+  // Wake Lock API - 화면 꺼짐 방지 (모바일 데스크톱 모드용)
+  useEffect(() => {
+    const requestWakeLock = async () => {
+      try {
+        if ("wakeLock" in navigator && isPlaying) {
+          wakeLockRef.current = await navigator.wakeLock.request("screen")
+          console.log("Wake Lock activated")
+        }
+      } catch (err) {
+        console.log("Wake Lock error:", err)
+      }
+    }
+
+    const releaseWakeLock = async () => {
+      if (wakeLockRef.current) {
+        try {
+          await wakeLockRef.current.release()
+          wakeLockRef.current = null
+          console.log("Wake Lock released")
+        } catch (err) {
+          console.log("Wake Lock release error:", err)
+        }
+      }
+    }
+
+    if (isPlaying) {
+      requestWakeLock()
+    } else {
+      releaseWakeLock()
+    }
+
+    return () => {
+      releaseWakeLock()
+    }
+  }, [isPlaying])
 
   // YouTube 플레이어 준비 완료 시
   const onPlayerReady = useCallback(
