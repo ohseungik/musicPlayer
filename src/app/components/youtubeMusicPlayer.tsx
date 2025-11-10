@@ -226,7 +226,7 @@ export default function YouTubeMusicPlayer() {
       rel: 0,
       iv_load_policy: 3,
       loop: 1,
-      playlist: currentVideo?.youtubeId || "",
+      playlist: playlist.map(video => video.youtubeId).join(","),
     },
   }
 
@@ -577,11 +577,11 @@ export default function YouTubeMusicPlayer() {
                       </Button>
                     </div>
                   </div>
-                  {/* YouTube iframe - 보이는 플레이어 (PIP 지원) */}
+                  {/* YouTube iframe - 보이는 플레이어 (재생목록 지원) */}
                   <div className="w-full aspect-video bg-black rounded-lg overflow-hidden">
                     <YouTube
-                      key={currentVideo.youtubeId}
-                      videoId={currentVideo.youtubeId}
+                      key={`${currentVideo.youtubeId}-${playlist.length}`}
+                      videoId={playlist.length > 0 ? playlist[0].youtubeId : currentVideo.youtubeId}
                       opts={opts}
                       onReady={onPlayerReady}
                       onPlay={onPlayerPlay}
@@ -592,7 +592,7 @@ export default function YouTubeMusicPlayer() {
                     />
                   </div>
                   <p className="text-sm text-muted-foreground mt-2">
-                    💡 현재 곡이 자동으로 반복 재생됩니다. 다음 곡으로 넘어가려면 ⏭️ 버튼을 클릭하세요.
+                    💡 재생목록이 자동으로 순환 재생됩니다. YouTube 플레이어에서 직접 곡 선택도 가능합니다.
                   </p>
                 </>
               ) : (
