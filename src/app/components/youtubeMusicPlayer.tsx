@@ -80,6 +80,13 @@ export default function YouTubeMusicPlayer() {
     return match && match[1].length === 11 ? match[1] : null
   }, [])
 
+  // YouTube 재생목록 ID 추출 (PL로 시작)
+  const extractPlaylistId = useCallback((url: string): string | null => {
+    const regExp = /[?&]list=([^#&?]+)/
+    const match = url.match(regExp)
+    return match ? match[1] : null
+  }, [])
+
   // 재생 목록에 새 비디오 추가
   const addVideo = useCallback(() => {
     setError(null)
@@ -88,9 +95,34 @@ export default function YouTubeMusicPlayer() {
       return
     }
 
+    // YouTube 재생목록인지 확인
+    const playlistId = extractPlaylistId(newVideoUrl)
+    if (playlistId && playlistId.startsWith('PL')) {
+      // 재생목록 추가
+      const newId = Date.now()
+      const newPlaylistItem = { 
+        id: newId, 
+        youtubeId: `PLAYLIST:${playlistId}`, // 재생목록임을 표시
+        title: `📁 ${newVideoTitle.trim()}`, 
+        originalUrl: newVideoUrl.trim() 
+      }
+      setPlaylist((prev) => {
+        const updatedPlaylist = [...prev, newPlaylistItem]
+        if (prev.length === 0 && currentTrackIndex === null) {
+          setCurrentTrackIndex(0)
+          setIsPlaying(true)
+        }
+        return updatedPlaylist
+      })
+      setNewVideoUrl("")
+      setNewVideoTitle("")
+      return
+    }
+
+    // 단일 비디오 추가
     const youtubeId = extractVideoId(newVideoUrl)
     if (!youtubeId) {
-      setError("유효하지 않은 YouTube URL입니다. 올바른 비디오 링크를 입력해주세요.")
+      setError("유효하지 않은 YouTube URL입니다. 올바른 비디오 또는 재생목록 링크를 입력해주세요.")
       return
     }
 
@@ -106,7 +138,7 @@ export default function YouTubeMusicPlayer() {
     })
     setNewVideoUrl("")
     setNewVideoTitle("")
-  }, [newVideoUrl, newVideoTitle, extractVideoId, playlist.length, currentTrackIndex])
+  }, [newVideoUrl, newVideoTitle, extractVideoId, extractPlaylistId, currentTrackIndex])
 
   // 특정 인덱스의 비디오 선택 및 재생
   const selectVideo = useCallback(
@@ -150,7 +182,7 @@ export default function YouTubeMusicPlayer() {
     if (nextIndex !== null) {
       selectVideo(nextIndex)
     }
-  }, [playlist.length, currentTrackIndex, playMode, selectVideo])
+  }, [playlist, currentTrackIndex, playMode, selectVideo])
 
   // 이전 곡 재생
   const playPrevious = useCallback(() => {
@@ -215,10 +247,23 @@ export default function YouTubeMusicPlayer() {
   )
 
   // YouTube 플레이어 옵션
+  const isPlaylist = currentVideo?.youtubeId.startsWith('PLAYLIST:') || false
+  const playlistId = isPlaylist && currentVideo ? currentVideo.youtubeId.replace('PLAYLIST:', '') : null
+
   const opts = {
     height: "1",
     width: "1",
-    playerVars: {
+    playerVars: isPlaylist ? {
+      autoplay: 1,
+      controls: 0,
+      disablekb: 1,
+      modestbranding: 1,
+      rel: 0,
+      iv_load_policy: 3,
+      loop: 1,
+      listType: 'playlist' as const,
+      list: playlistId || "",
+    } : {
       autoplay: 1,
       controls: 0,
       disablekb: 1,
@@ -581,7 +626,7 @@ export default function YouTubeMusicPlayer() {
                   <div className="fixed bottom-0 right-0 w-1 h-1 overflow-hidden opacity-0 pointer-events-none">
                     <YouTube
                       key={currentVideo.youtubeId}
-                      videoId={currentVideo.youtubeId}
+                      videoId={isPlaylist ? undefined : currentVideo.youtubeId}
                       opts={opts}
                       onReady={onPlayerReady}
                       onPlay={onPlayerPlay}
