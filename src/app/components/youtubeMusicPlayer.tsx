@@ -220,11 +220,13 @@ export default function YouTubeMusicPlayer() {
     width: "320",
     playerVars: {
       autoplay: 1,
-      controls: 1, // 컨트롤 표시 (PIP 버튼 포함)
+      controls: 1,
       disablekb: 0,
       modestbranding: 1,
       rel: 0,
       iv_load_policy: 3,
+      loop: 1,
+      playlist: currentVideo?.youtubeId || "",
     },
   }
 
@@ -590,7 +592,7 @@ export default function YouTubeMusicPlayer() {
                     />
                   </div>
                   <p className="text-sm text-muted-foreground mt-2">
-                    💡 미디어 컨트롤: 콘솔 로그를 확인하여 버튼이 감지되는지 테스트하세요 (chrome://inspect)
+                    💡 현재 곡이 자동으로 반복 재생됩니다. 다음 곡으로 넘어가려면 ⏭️ 버튼을 클릭하세요.
                   </p>
                 </>
               ) : (
