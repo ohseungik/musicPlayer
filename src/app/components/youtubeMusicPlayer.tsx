@@ -32,6 +32,7 @@ export default function YouTubeMusicPlayer() {
 
   const playerRef = useRef<YouTubePlayer | null>(null)
   const playedIndicesRef = useRef<number[]>([])
+  const checkIntervalRef = useRef<NodeJS.Timeout | null>(null)
 
   const currentVideo = currentTrackIndex !== null ? playlist[currentTrackIndex] : null
 
@@ -212,7 +213,7 @@ export default function YouTubeMusicPlayer() {
     [playlist, currentTrackIndex],
   )
 
-  // YouTube 플레이어 옵션 - loop=1 파라미터 추가
+  // YouTube 플레이어 옵션
   const opts = {
     height: "1",
     width: "1",
@@ -223,10 +224,59 @@ export default function YouTubeMusicPlayer() {
       modestbranding: 1,
       rel: 0,
       iv_load_policy: 3,
-      loop: 1, // 반복 재생 활성화
-      playlist: currentVideo?.youtubeId || "", // loop=1이 작동하려면 playlist 파라미터가 필요
     },
   }
+
+  // 플레이어 상태를 주기적으로 체크 (비활성화 상태에서도 작동)
+  const startStateCheck = useCallback(() => {
+    if (checkIntervalRef.current) {
+      clearInterval(checkIntervalRef.current)
+    }
+
+    checkIntervalRef.current = setInterval(() => {
+      if (playerRef.current && isPlaying) {
+        try {
+          const state = playerRef.current.getPlayerState()
+          // 0 = ended
+          if (state === 0) {
+            if (playMode === "repeat-all" || playMode === "shuffle") {
+              playNext()
+            } else {
+              // playMode === "none"
+              const nextIndex = currentTrackIndex !== null ? currentTrackIndex + 1 : 0
+              if (nextIndex < playlist.length) {
+                playNext()
+              } else {
+                setIsPlaying(false)
+              }
+            }
+          }
+        } catch (e) {
+          console.error("Player state check error:", e)
+        }
+      }
+    }, 1000) // 1초마다 체크
+  }, [isPlaying, playMode, currentTrackIndex, playlist.length, playNext])
+
+  // 컴포넌트 언마운트 시 인터벌 정리
+  useEffect(() => {
+    return () => {
+      if (checkIntervalRef.current) {
+        clearInterval(checkIntervalRef.current)
+      }
+    }
+  }, [])
+
+  // isPlaying 상태 변경 시 체크 시작/중지
+  useEffect(() => {
+    if (isPlaying) {
+      startStateCheck()
+    } else {
+      if (checkIntervalRef.current) {
+        clearInterval(checkIntervalRef.current)
+      }
+    }
+  }, [isPlaying, startStateCheck])
 
   // YouTube 플레이어 준비 완료 시
   const onPlayerReady = useCallback(
@@ -249,14 +299,47 @@ export default function YouTubeMusicPlayer() {
     setIsPlaying(false)
   }, [])
 
-  // YouTube 플레이어 종료 시 다음 곡 재생 (loop=1이 있으면 이 이벤트가 발생하지 않을 수 있음)
+  // YouTube 플레이어 상태 변경 시
+  const onPlayerStateChange = useCallback(
+    (event: YouTubeEvent) => {
+      const state = event.data
+      // 0 = ended
+      if (state === 0) {
+        if (playMode === "repeat-all" || playMode === "shuffle") {
+          playNext()
+        } else {
+          // playMode === "none"
+          const nextIndex = currentTrackIndex !== null ? currentTrackIndex + 1 : 0
+          if (nextIndex < playlist.length) {
+            playNext()
+          } else {
+            setIsPlaying(false)
+          }
+        }
+      } else if (state === 1) {
+        // 1 = playing
+        setIsPlaying(true)
+      } else if (state === 2) {
+        // 2 = paused
+        setIsPlaying(false)
+      }
+    },
+    [playMode, playNext, currentTrackIndex, playlist.length],
+  )
+
+  // YouTube 플레이어 종료 시 (백업용)
   const onPlayerEnd = useCallback(() => {
-    setIsPlaying(false)
-    // loop=1이 활성화되어 있으면 자동으로 반복되므로 다음 곡으로 넘어가지 않음
-    if (playMode !== "repeat-all") {
+    if (playMode === "repeat-all" || playMode === "shuffle") {
       playNext()
+    } else {
+      const nextIndex = currentTrackIndex !== null ? currentTrackIndex + 1 : 0
+      if (nextIndex < playlist.length) {
+        playNext()
+      } else {
+        setIsPlaying(false)
+      }
     }
-  }, [playNext, playMode])
+  }, [playNext, playMode, currentTrackIndex, playlist.length])
 
   return (
     <div className="container mx-auto p-4 max-w-4xl">
@@ -345,10 +428,11 @@ export default function YouTubeMusicPlayer() {
                       onPlay={onPlayerPlay}
                       onPause={onPlayerPause}
                       onEnd={onPlayerEnd}
+                      onStateChange={onPlayerStateChange}
                     />
                   </div>
                   <p className="text-sm text-muted-foreground mt-2">
-                    이 플레이어는 YouTube 비디오를 반복 재생합니다. (loop=1 파라미터 사용)
+                    백그라운드에서도 자동으로 다음 곡이 재생됩니다.
                   </p>
                 </>
               ) : (
