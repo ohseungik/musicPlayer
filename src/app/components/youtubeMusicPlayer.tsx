@@ -34,7 +34,6 @@ export default function YouTubeMusicPlayer() {
   const playedIndicesRef = useRef<number[]>([])
   const checkIntervalRef = useRef<NodeJS.Timeout | null>(null)
   const wakeLockRef = useRef<WakeLockSentinel | null>(null)
-  const videoRef = useRef<HTMLVideoElement | null>(null)
 
   const currentVideo = currentTrackIndex !== null ? playlist[currentTrackIndex] : null
 
@@ -170,48 +169,6 @@ export default function YouTubeMusicPlayer() {
       playerRef.current.playVideo()
     }
   }, [isPlaying])
-
-  // PIP (Picture-in-Picture) 모드 강제 활성화
-  const enablePIP = useCallback(async () => {
-    try {
-      // YouTube iframe 내부의 video 요소 접근 시도
-      const iframe = document.querySelector('iframe') as HTMLIFrameElement
-      
-      if (!iframe) {
-        alert("비디오를 찾을 수 없습니다.")
-        return
-      }
-
-      // iframe 내부 접근 시도 (Same-origin policy로 제한될 수 있음)
-      try {
-        const iframeDoc = iframe.contentDocument || iframe.contentWindow?.document
-        const video = iframeDoc?.querySelector('video') as HTMLVideoElement
-        
-        if (video && document.pictureInPictureEnabled && !video.disablePictureInPicture) {
-          await video.requestPictureInPicture()
-          console.log("PIP 모드 활성화!")
-        } else {
-          throw new Error("Direct PIP access blocked")
-        }
-      } catch (crossOriginError) {
-        // Cross-origin 제약으로 실패 시 대안 안내
-        alert(
-          "⚠️ 자동 PIP 활성화 실패\n\n" +
-          "📱 수동으로 PIP 모드 활성화:\n\n" +
-          "1. 비디오를 탭하여 컨트롤 표시\n" +
-          "2. 우측 상단의 ⬜ (PIP) 아이콘 클릭\n" +
-          "   또는\n" +
-          "3. 비디오를 더블탭 → 전체화면 진입\n" +
-          "4. 뒤로가기 버튼을 눌러 PIP 모드로 전환\n\n" +
-          "💡 팁: YouTube Premium이 있다면\n" +
-          "   미니플레이어로도 백그라운드 재생 가능"
-        )
-      }
-    } catch (err) {
-      console.error("PIP error:", err)
-      alert("PIP 모드를 활성화할 수 없습니다.")
-    }
-  }, [])
 
   // 재생 모드 토글
   const togglePlayMode = useCallback(() => {
@@ -364,87 +321,116 @@ export default function YouTubeMusicPlayer() {
 
   // Media Session API - 미디어 컨트롤 알림에 재생 정보 표시
   useEffect(() => {
-    if ("mediaSession" in navigator && currentVideo) {
-      // 현재 곡 정보 설정
-      navigator.mediaSession.metadata = new MediaMetadata({
-        title: currentVideo.title,
-        artist: "YouTube Music Player",
-        album: `재생목록 (${currentTrackIndex !== null ? currentTrackIndex + 1 : 0}/${playlist.length})`,
-        artwork: [
-          {
-            src: `https://img.youtube.com/vi/${currentVideo.youtubeId}/maxresdefault.jpg`,
-            sizes: "1280x720",
-            type: "image/jpeg",
-          },
-          {
-            src: `https://img.youtube.com/vi/${currentVideo.youtubeId}/hqdefault.jpg`,
-            sizes: "480x360",
-            type: "image/jpeg",
-          },
-          {
-            src: `https://img.youtube.com/vi/${currentVideo.youtubeId}/mqdefault.jpg`,
-            sizes: "320x180",
-            type: "image/jpeg",
-          },
-        ],
-      })
+    if (!("mediaSession" in navigator) || !currentVideo) return
 
-      // 재생/일시정지
-      navigator.mediaSession.setActionHandler("play", () => {
-        if (playerRef.current) {
-          playerRef.current.playVideo()
-          setIsPlaying(true)
-        }
-      })
+    const updateMediaSession = () => {
+      try {
+        // 현재 곡 정보 설정
+        navigator.mediaSession.metadata = new MediaMetadata({
+          title: currentVideo.title,
+          artist: "YouTube Music Player",
+          album: `재생목록 (${currentTrackIndex !== null ? currentTrackIndex + 1 : 0}/${playlist.length})`,
+          artwork: [
+            {
+              src: `https://img.youtube.com/vi/${currentVideo.youtubeId}/maxresdefault.jpg`,
+              sizes: "1280x720",
+              type: "image/jpeg",
+            },
+            {
+              src: `https://img.youtube.com/vi/${currentVideo.youtubeId}/hqdefault.jpg`,
+              sizes: "480x360",
+              type: "image/jpeg",
+            },
+            {
+              src: `https://img.youtube.com/vi/${currentVideo.youtubeId}/mqdefault.jpg`,
+              sizes: "320x180",
+              type: "image/jpeg",
+            },
+          ],
+        })
 
-      navigator.mediaSession.setActionHandler("pause", () => {
-        if (playerRef.current) {
-          playerRef.current.pauseVideo()
-          setIsPlaying(false)
-        }
-      })
+        // 재생/일시정지
+        navigator.mediaSession.setActionHandler("play", () => {
+          console.log("Media Session: Play")
+          if (playerRef.current) {
+            playerRef.current.playVideo()
+          }
+        })
 
-      // 이전 곡
-      navigator.mediaSession.setActionHandler("previoustrack", () => {
-        playPrevious()
-      })
+        navigator.mediaSession.setActionHandler("pause", () => {
+          console.log("Media Session: Pause")
+          if (playerRef.current) {
+            playerRef.current.pauseVideo()
+          }
+        })
 
-      // 다음 곡
-      navigator.mediaSession.setActionHandler("nexttrack", () => {
-        playNext()
-      })
+        // 이전 곡
+        navigator.mediaSession.setActionHandler("previoustrack", () => {
+          console.log("Media Session: Previous Track")
+          playPrevious()
+        })
 
-      // 10초 뒤로
-      navigator.mediaSession.setActionHandler("seekbackward", (details) => {
-        if (playerRef.current) {
-          const skipTime = details.seekOffset || 10
-          const currentTime = playerRef.current.getCurrentTime()
-          playerRef.current.seekTo(Math.max(0, currentTime - skipTime), true)
-        }
-      })
+        // 다음 곡
+        navigator.mediaSession.setActionHandler("nexttrack", () => {
+          console.log("Media Session: Next Track")
+          playNext()
+        })
 
-      // 10초 앞으로
-      navigator.mediaSession.setActionHandler("seekforward", (details) => {
-        if (playerRef.current) {
-          const skipTime = details.seekOffset || 10
-          const currentTime = playerRef.current.getCurrentTime()
-          playerRef.current.seekTo(currentTime + skipTime, true)
-        }
-      })
+        // 10초 뒤로
+        navigator.mediaSession.setActionHandler("seekbackward", (details) => {
+          console.log("Media Session: Seek Backward")
+          if (playerRef.current) {
+            const skipTime = details.seekOffset || 10
+            const currentTime = playerRef.current.getCurrentTime()
+            playerRef.current.seekTo(Math.max(0, currentTime - skipTime), true)
+          }
+        })
 
-      // 특정 위치로 이동
-      navigator.mediaSession.setActionHandler("seekto", (details) => {
-        if (playerRef.current && details.seekTime !== null && details.seekTime !== undefined) {
-          playerRef.current.seekTo(details.seekTime, true)
-        }
-      })
+        // 10초 앞으로
+        navigator.mediaSession.setActionHandler("seekforward", (details) => {
+          console.log("Media Session: Seek Forward")
+          if (playerRef.current) {
+            const skipTime = details.seekOffset || 10
+            const currentTime = playerRef.current.getCurrentTime()
+            playerRef.current.seekTo(currentTime + skipTime, true)
+          }
+        })
 
-      console.log("Media Session API 설정 완료:", currentVideo.title)
+        // 특정 위치로 이동
+        navigator.mediaSession.setActionHandler("seekto", (details) => {
+          console.log("Media Session: Seek To")
+          if (playerRef.current && details.seekTime !== null && details.seekTime !== undefined) {
+            playerRef.current.seekTo(details.seekTime, true)
+          }
+        })
+
+        console.log("✅ Media Session 설정 완료:", currentVideo.title)
+      } catch (err) {
+        console.error("Media Session 설정 오류:", err)
+      }
     }
 
+    // 초기 설정
+    updateMediaSession()
+
+    // YouTube iframe이 덮어쓸 수 있으므로 주기적으로 재설정
+    const interval = setInterval(updateMediaSession, 2000)
+
     return () => {
+      clearInterval(interval)
       if ("mediaSession" in navigator) {
-        navigator.mediaSession.metadata = null
+        try {
+          navigator.mediaSession.setActionHandler("play", null)
+          navigator.mediaSession.setActionHandler("pause", null)
+          navigator.mediaSession.setActionHandler("previoustrack", null)
+          navigator.mediaSession.setActionHandler("nexttrack", null)
+          navigator.mediaSession.setActionHandler("seekbackward", null)
+          navigator.mediaSession.setActionHandler("seekforward", null)
+          navigator.mediaSession.setActionHandler("seekto", null)
+          navigator.mediaSession.metadata = null
+        } catch (err) {
+          console.error("Media Session 정리 오류:", err)
+        }
       }
     }
   }, [currentVideo, currentTrackIndex, playlist.length, playNext, playPrevious])
@@ -589,11 +575,6 @@ export default function YouTubeMusicPlayer() {
                       </Button>
                     </div>
                   </div>
-                  <div className="mt-2 flex gap-2">
-                    <Button onClick={enablePIP} variant="default" size="sm" className="flex-1">
-                      📺 PIP 모드 활성화
-                    </Button>
-                  </div>
                   {/* YouTube iframe - 보이는 플레이어 (PIP 지원) */}
                   <div className="w-full aspect-video bg-black rounded-lg overflow-hidden">
                     <YouTube
@@ -609,7 +590,7 @@ export default function YouTubeMusicPlayer() {
                     />
                   </div>
                   <p className="text-sm text-muted-foreground mt-2">
-                    💡 백그라운드 재생: 홈 버튼으로 나가면 미디어 컨트롤 알림에서 재생목록 관리 가능
+                    💡 미디어 컨트롤: 콘솔 로그를 확인하여 버튼이 감지되는지 테스트하세요 (chrome://inspect)
                   </p>
                 </>
               ) : (
