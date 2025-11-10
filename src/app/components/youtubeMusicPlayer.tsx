@@ -225,8 +225,8 @@ export default function YouTubeMusicPlayer() {
       modestbranding: 1,
       rel: 0,
       iv_load_policy: 3,
-      loop: 1,
-      playlist: playlist.map(video => video.youtubeId).join(","),
+      loop: playlist.length > 1 ? 1 : 0,
+      playlist: playlist.length > 1 ? playlist.map(video => video.youtubeId).join(",") : undefined,
     },
   }
 
