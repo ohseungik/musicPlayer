@@ -263,6 +263,7 @@ export default function YouTubeMusicPlayer() {
       loop: 1,
       listType: 'playlist' as const,
       list: playlistId || "",
+      playlist: playlistId || "", // loop를 위해 필요
     } : {
       autoplay: 1,
       controls: 0,
@@ -289,26 +290,22 @@ export default function YouTubeMusicPlayer() {
           const duration = playerRef.current.getDuration()
           
           // 0 = ended 또는 현재 시간이 전체 시간에 거의 도달한 경우
+          // 단, YouTube의 loop 파라미터가 설정되어 있으므로 자동으로 반복됨
+          // 다음 곡으로 넘어가는 기능은 수동 버튼 클릭으로만 동작
           if (state === 0 || (duration > 0 && currentTime >= duration - 1)) {
-            console.log("Track ended, moving to next")
+            console.log("Track ended, but loop is enabled by YouTube")
+            // playMode가 "repeat-all" 또는 "shuffle"일 때만 다음 곡으로 이동
             if (playMode === "repeat-all" || playMode === "shuffle") {
               playNext()
-            } else {
-              // playMode === "none"
-              const nextIndex = currentTrackIndex !== null ? currentTrackIndex + 1 : 0
-              if (nextIndex < playlist.length) {
-                playNext()
-              } else {
-                setIsPlaying(false)
-              }
             }
+            // playMode === "none"일 때는 YouTube의 loop 파라미터가 자동으로 반복 재생
           }
         } catch (e) {
           console.error("Player state check error:", e)
         }
       }
     }, 500) // 0.5초마다 체크 (더 빠른 반응)
-  }, [isPlaying, playMode, currentTrackIndex, playlist.length, playNext])
+  }, [isPlaying, playMode, playNext])
 
   // 컴포넌트 언마운트 시 인터벌 정리
   useEffect(() => {
