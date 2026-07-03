@@ -290,22 +290,22 @@ export default function YouTubeMusicPlayer() {
           const duration = playerRef.current.getDuration()
           
           // 0 = ended 또는 현재 시간이 전체 시간에 거의 도달한 경우
-          // 단, YouTube의 loop 파라미터가 설정되어 있으므로 자동으로 반복됨
-          // 다음 곡으로 넘어가는 기능은 수동 버튼 클릭으로만 동작
           if (state === 0 || (duration > 0 && currentTime >= duration - 1)) {
-            console.log("Track ended, but loop is enabled by YouTube")
             // playMode가 "repeat-all" 또는 "shuffle"일 때만 다음 곡으로 이동
             if (playMode === "repeat-all" || playMode === "shuffle") {
               playNext()
+            } else if (!isPlaylist) {
+              // 단일 곡 반복: YouTube의 loop 파라미터가 실패할 경우를 대비해 직접 처음부터 재생
+              playerRef.current.seekTo(0, true)
+              playerRef.current.playVideo()
             }
-            // playMode === "none"일 때는 YouTube의 loop 파라미터가 자동으로 반복 재생
           }
         } catch (e) {
           console.error("Player state check error:", e)
         }
       }
     }, 500) // 0.5초마다 체크 (더 빠른 반응)
-  }, [isPlaying, playMode, playNext])
+  }, [isPlaying, playMode, playNext, isPlaylist])
 
   // 컴포넌트 언마운트 시 인터벌 정리
   useEffect(() => {
@@ -361,6 +361,25 @@ export default function YouTubeMusicPlayer() {
     return () => {
       releaseWakeLock()
     }
+  }, [isPlaying])
+
+  // 탭/화면이 백그라운드에서 다시 활성화될 때 재생이 끊겨있으면 자동으로 재개
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (!document.hidden && isPlaying && playerRef.current) {
+        try {
+          const state = playerRef.current.getPlayerState()
+          if (state !== 1 /* playing */ && state !== 3 /* buffering */) {
+            playerRef.current.playVideo()
+          }
+        } catch (err) {
+          console.error("Visibility resume error:", err)
+        }
+      }
+    }
+
+    document.addEventListener("visibilitychange", handleVisibilityChange)
+    return () => document.removeEventListener("visibilitychange", handleVisibilityChange)
   }, [isPlaying])
 
   // Media Session API - 미디어 컨트롤 알림에 재생 정보 표시
@@ -493,11 +512,25 @@ export default function YouTubeMusicPlayer() {
   // YouTube 플레이어 재생 시
   const onPlayerPlay = useCallback(() => {
     setIsPlaying(true)
+    if ("mediaSession" in navigator) {
+      navigator.mediaSession.playbackState = "playing"
+    }
   }, [])
 
   // YouTube 플레이어 일시정지 시
   const onPlayerPause = useCallback(() => {
     setIsPlaying(false)
+    if ("mediaSession" in navigator) {
+      navigator.mediaSession.playbackState = "paused"
+    }
+  }, [])
+
+  // 단일 곡을 처음부터 다시 재생 (반복 재생용)
+  const restartCurrentVideo = useCallback(() => {
+    if (playerRef.current) {
+      playerRef.current.seekTo(0, true)
+      playerRef.current.playVideo()
+    }
   }, [])
 
   // YouTube 플레이어 상태 변경 시
@@ -508,14 +541,9 @@ export default function YouTubeMusicPlayer() {
       if (state === 0) {
         if (playMode === "repeat-all" || playMode === "shuffle") {
           playNext()
-        } else {
-          // playMode === "none"
-          const nextIndex = currentTrackIndex !== null ? currentTrackIndex + 1 : 0
-          if (nextIndex < playlist.length) {
-            playNext()
-          } else {
-            setIsPlaying(false)
-          }
+        } else if (!isPlaylist) {
+          // playMode === "none" (단일 곡): 계속 반복 재생
+          restartCurrentVideo()
         }
       } else if (state === 1) {
         // 1 = playing
@@ -525,22 +553,17 @@ export default function YouTubeMusicPlayer() {
         setIsPlaying(false)
       }
     },
-    [playMode, playNext, currentTrackIndex, playlist.length],
+    [playMode, playNext, isPlaylist, restartCurrentVideo],
   )
 
   // YouTube 플레이어 종료 시 (백업용)
   const onPlayerEnd = useCallback(() => {
     if (playMode === "repeat-all" || playMode === "shuffle") {
       playNext()
-    } else {
-      const nextIndex = currentTrackIndex !== null ? currentTrackIndex + 1 : 0
-      if (nextIndex < playlist.length) {
-        playNext()
-      } else {
-        setIsPlaying(false)
-      }
+    } else if (!isPlaylist) {
+      restartCurrentVideo()
     }
-  }, [playNext, playMode, currentTrackIndex, playlist.length])
+  }, [playNext, playMode, isPlaylist, restartCurrentVideo])
 
   return (
     <div className="container mx-auto p-4 max-w-4xl">
