@@ -279,6 +279,17 @@ export default function YouTubeMusicPlayer() {
     },
   }
 
+  // 단일 곡을 처음부터 다시 재생 (반복 재생용)
+  const restartCurrentVideo = useCallback(() => {
+    if (!playerRef.current) return
+    try {
+      playerRef.current.seekTo(0, true)
+      playerRef.current.playVideo()
+    } catch (err) {
+      console.error("Repeat restart error:", err)
+    }
+  }, [])
+
   // 플레이어 상태를 주기적으로 체크 (비활성화 상태에서도 작동)
   const startStateCheck = useCallback(() => {
     if (checkIntervalRef.current) {
@@ -293,14 +304,14 @@ export default function YouTubeMusicPlayer() {
           const duration = playerRef.current.getDuration()
           
           // 0 = ended 또는 현재 시간이 전체 시간에 거의 도달한 경우
-          if (state === 0 || (duration > 0 && currentTime >= duration - 1)) {
+          // 실제로 곡이 끝나기 전에 미리 되감아, 오디오 출력이 끊기는 순간(=백그라운드에서
+          // 브라우저가 재생을 새로 시작하는 것으로 간주해 차단할 수 있는 시점)을 최대한 피함
+          if (state === 0 || (duration > 0 && currentTime >= duration - 1.5)) {
             // playMode가 "repeat-all" 또는 "shuffle"일 때만 다음 곡으로 이동
             if (playMode === "repeat-all" || playMode === "shuffle") {
               playNext()
             } else if (!isPlaylist) {
-              // 단일 곡 반복: YouTube의 loop 파라미터가 실패할 경우를 대비해 직접 처음부터 재생
-              playerRef.current.seekTo(0, true)
-              playerRef.current.playVideo()
+              restartCurrentVideo()
             }
           }
         } catch (e) {
@@ -308,7 +319,7 @@ export default function YouTubeMusicPlayer() {
         }
       }
     }, 500) // 0.5초마다 체크 (더 빠른 반응)
-  }, [isPlaying, playMode, playNext, isPlaylist])
+  }, [isPlaying, playMode, playNext, isPlaylist, restartCurrentVideo])
 
   // 컴포넌트 언마운트 시 인터벌 정리
   useEffect(() => {
@@ -525,14 +536,6 @@ export default function YouTubeMusicPlayer() {
     setIsPlaying(false)
     if ("mediaSession" in navigator) {
       navigator.mediaSession.playbackState = "paused"
-    }
-  }, [])
-
-  // 단일 곡을 처음부터 다시 재생 (반복 재생용)
-  const restartCurrentVideo = useCallback(() => {
-    if (playerRef.current) {
-      playerRef.current.seekTo(0, true)
-      playerRef.current.playVideo()
     }
   }, [])
 
