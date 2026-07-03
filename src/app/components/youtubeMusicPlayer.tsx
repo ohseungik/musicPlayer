@@ -251,8 +251,11 @@ export default function YouTubeMusicPlayer() {
   const playlistId = isPlaylist && currentVideo ? currentVideo.youtubeId.replace('PLAYLIST:', '') : null
 
   const opts = {
-    height: "1",
-    width: "1",
+    // Chrome은 1x1 크기의 숨김 iframe을 "보이지 않는 프레임"으로 판단해
+    // 화면이 꺼지거나 탭이 백그라운드로 가면 재생을 강제로 스로틀링/정지시킴.
+    // 충분히 큰 크기를 유지해야 백그라운드에서도 재생(및 loop)이 계속됨.
+    height: "200",
+    width: "200",
     playerVars: isPlaylist ? {
       autoplay: 1,
       controls: 0,
@@ -642,8 +645,8 @@ export default function YouTubeMusicPlayer() {
                       </Button>
                     </div>
                   </div>
-                  {/* YouTube iframe - 숨김 (백그라운드 재생) */}
-                  <div className="fixed bottom-0 right-0 w-1 h-1 overflow-hidden opacity-0 pointer-events-none">
+                  {/* YouTube iframe - 시각적으로만 숨김 (백그라운드 재생 유지를 위해 실제 크기는 충분히 확보) */}
+                  <div className="fixed bottom-0 right-0 w-[200px] h-[200px] overflow-hidden opacity-0 pointer-events-none -z-10">
                     <YouTube
                       key={currentVideo.youtubeId}
                       videoId={isPlaylist ? undefined : currentVideo.youtubeId}
